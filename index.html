@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lista de servicios</title>
+  <style>
+    :root { --bg:#000000; --card:#0b0b0b; --muted:#9ca3af; --acc:#ef4444; }
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#000;color:#e5e7eb}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(180deg,#000,#050505);border-bottom:1px solid #1f1f1f;position:sticky;top:0;z-index:2}
+    header h1{margin:0;font-size:18px;font-weight:600}
+    header .sub{color:var(--muted);font-size:12px}
+    .wrap{display:grid;grid-template-columns:280px 1fr;gap:14px;padding:14px;transition:grid-template-columns .2s ease}
+    .panel{background:#0b0b0b;border:1px solid #1f1f1f;border-radius:14px}
+    .left{display:flex;flex-direction:column;overflow:hidden}
+    .left header{position:relative;top:auto;border:0;background:transparent;padding:12px 12px 0}
+    .search{padding:12px}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #262626;background:#0a0a0a;color:#e5e7eb}
+    .plantillas{overflow:auto;max-height:calc(100vh - 200px);padding:6px 8px}
+    .chip{display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;border:1px solid #262626;background:#0a0a0a;margin:6px 4px;cursor:pointer}
+    .chip small{color:var(--muted)}
+    .chip.active{border-color:var(--acc);background:rgba(239,68,68,.08)}
+    .right{padding:12px 14px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+    .toolbar .box{background:#0a0a0a;border:1px solid #262626;border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:8px}
+    .toolbar label{font-size:12px;color:var(--muted)}
+    .toolbar input[type="number"], .toolbar input[type="text"]{background:#0a0a0a;border:1px solid #262626;color:#e5e7eb;border-radius:8px;padding:6px 8px;width:110px}
+    .toolbar button{background:var(--acc);color:#1a0000;border:0;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+    .toolbar button.sec{background:#0a0a0a;color:#e5e7eb;border:1px solid #262626}
+    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:10px}
+    thead th{position:sticky;top:56px;background:#0a0a0a;border-bottom:1px solid #262626;padding:10px;text-align:left;font-size:12px;color:#b6b6b6}
+    tbody td{border-bottom:1px solid #1a1a1a;padding:10px;font-size:14px}
+    tbody tr:hover{background:rgba(239,68,68,.03)}
+    tfoot td{padding:12px 10px;border-top:1px solid #262626;background:#0a0a0a;font-weight:700}
+    .qty{width:72px}
+    .muted{color:var(--muted)}
+    .pill{display:inline-block;padding:2px 8px;border:1px solid #262626;border-radius:999px;background:#0a0a0a;color:#b6b6b6;font-size:12px}
+    .hidden{display:none}
+    .footnote{color:#b6b6b6;font-size:12px;margin-top:8px}
+    .danger{color:#f87171}
+    .ok{color:#34d399}
+    @media (max-width: 980px){ .wrap{grid-template-columns:1fr} }
+    /* panel plegable */
+    body.collapsed .left{display:none}
+    body.collapsed .wrap{grid-template-columns:1fr}
+    #toggleAside{margin-left:8px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="title">Lista de servicios</h1>
+      <div class="sub">Fuente: <span id="sourceLabel" class="pill">sin archivo</span></div>
+    </div>
+    <div>
+      <button id="toggleAside" class="sec">Ocultar panel</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <aside class="panel left">
+      <header>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <div>
+            <div style="font-weight:600">Plantillas</div>
+            <div class="hint muted">Elegí una para listar sus ítems</div>
+          </div>
+          <div class="pill" id="plantCount">0</div>
+        </div>
+      </header>
+      <div class="search">
+        <input id="plantSearch" placeholder="Buscar plantilla..." />
+      </div>
+      <div id="plantillas" class="plantillas"></div>
+    </aside>
+
+    <main class="panel right">
+      <div class="toolbar">
+        <div class="box"><label>Markup (público)</label><input type="number" id="markup" step="0.01" value="1.20" title="Coeficiente para precio al público"></div>
+        <div class="box"><label>Cliente</label><input type="text" id="nombreCliente" placeholder="Nombre del cliente"></div>
+        <button id="btnPDF">Guardar presupuesto (PDF)</button>
+        <button class="sec" id="btnReset">Limpiar cantidades</button>
+      </div>
+
+      <div id="plantillaHeader" class="muted" style="margin-bottom:6px">Seleccioná una plantilla de la izquierda.</div>
+
+      <div style="overflow:auto">
+        <table id="tabla">
+          <thead>
+            <tr>
+              <th style="min-width:120px">Código</th>
+              <th style="min-width:260px">Descripción</th>
+              <th class="muted">Precio base</th>
+              <th><b>Costo (tu costo)</b></th>
+              <th>Cantidad</th>
+              <th><b>Precio público</b> (con markup)</th>
+              <th>Total costo</th>
+              <th>Total público</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" style="text-align:right">Totales</td>
+              <td id="sumCosto">0</td>
+              <td id="sumPublico">0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="footnote" id="footNote"></div>
+    </main>
+  </div>
+
+  <script>
+    // ====== Estado global ======
+    let DATA = { items: [], proveedores: {}, coefCliente: 1.0, archivo:"" };
+    let PLANTILLAS = [];
+    let VISTA = { plantillaId: null, markup: 1.20 };
+
+    const $ = (sel)=>document.querySelector(sel);
+    const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
+
+    // ====== Utilidades ======
+    const money = (n)=> isFinite(n) ? new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(n) : "-";
+    const parseNum = (v)=>{ const n = Number((v||"").toString().replace(',','.')); return isFinite(n) ? n : 0 };
+
+    function guessTitleFromFilename(name){
+      if(!name) return "Lista de servicios";
+      const base = name.split('/').pop().replace(/\.[^.]+$/,'');
+      return `Lista de servicios ${base}`;
+    }
+    function setTitleFrom(name){ $('#title').textContent = guessTitleFromFilename(name); $('#sourceLabel').textContent = name ? name.split('/').pop(): 'sin archivo'; document.title = guessTitleFromFilename(name); }
+
+    function normalizeHeader(h){
+      return (h||"").toString().trim().toLowerCase()
+      .replace(/\s+/g,' ')
+      .replace(/[()]/g,'')
+      .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u');
+    }
+    function groupBy(arr, key){ const m={}; arr.forEach(x=>{ const k=x[key]; if(!m[k]) m[k]=[]; m[k].push(x); }); return m }
+
+    // ====== Excel Parsing ======
+    async function loadFromArrayBuffer(buf, fileName){
+      const wb = XLSX.read(buf, {type:'array'});
+      const sheetNames = wb.SheetNames;
+      const ws1 = wb.Sheets[sheetNames[0]]; // Productos
+      const ws2 = wb.Sheets[sheetNames[1]]; // Proveedores
+      const ws3 = wb.Sheets[sheetNames[2]]; // Coef. Cliente
+
+      const sheet1 = XLSX.utils.sheet_to_json(ws1, {defval:""});
+      const sheet2 = ws2 ? XLSX.utils.sheet_to_json(ws2, {defval:""}) : [];
+      const sheet3 = ws3 ? XLSX.utils.sheet_to_json(ws3, {defval:""}) : [];
+
+      const headers1 = Object.keys(sheet1[0]||{}).reduce((acc,k)=>{ acc[normalizeHeader(k)] = k; return acc; },{});
+      const col = (want)=> headers1[want] || Object.entries(headers1).find(([n])=> n.includes(want))?.[1];
+
+      const H1 = {
+        ide: col('ide motor') || col('id plantilla') || col('plantilla') || 'IDE MOTOR',
+        descPlantilla: col('descripcion') || 'Descripcion',
+        codigo: col('codigo de producto') || col('codigo') || 'Código de producto',
+        descLarga: col('descripcion larga') || 'Descripción larga',
+        precio: col('precio final') || col('precio final iva incl') || 'Precio final (iva incl)',
+        proveedor: col('proveedor habitual') || col('proveedor') || 'Proveedor habitual'
+      };
+
+      const items = sheet1.map(r=>({
+        ide: r[H1.ide],
+        plantilla: r[H1.descPlantilla],
+        codigo: r[H1.codigo],
+        desc: r[H1.descLarga],
+        precioBase: parseNum(r[H1.precio]),
+        proveedor: r[H1.proveedor]
+      })).filter(x=> x.ide!=null && x.codigo);
+
+      let headers2 = {};
+      if(sheet2.length){ headers2 = Object.keys(sheet2[0]).reduce((acc,k)=>{ acc[normalizeHeader(k)] = k; return acc; },{}); }
+      const C2 = {
+        proveedor: headers2['proveedor habitual'] || headers2['proveedor'] || 'Proveedor',
+        coef: headers2['coeficiente'] || Object.entries(headers2).find(([n])=> n.includes('coef'))?.[1]
+      };
+      const provMap = {};
+      sheet2.forEach(r=>{
+        const name = r[C2.proveedor];
+        const cv = parseNum(r[C2.coef]);
+        if(name){ provMap[name] = (cv||1); }
+      });
+
+      let coefCliente = 1.0;
+      outer: for(const row of sheet3){
+        for(const k of Object.keys(row)){
+          const n = parseNum(row[k]);
+          if(n && isFinite(n) && n>0){ coefCliente = n; break outer; }
+        }
+      }
+
+      DATA = { items, proveedores: provMap, coefCliente, archivo: fileName||'' };
+      VISTA.markup = parseNum($('#markup').value)||1.2;
+      rebuildPlantillas();
+      setTitleFrom(fileName||'');
+    }
+
+    async function loadFromURL(url){
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('No se pudo descargar el archivo');
+      const buf = await res.arrayBuffer();
+      await loadFromArrayBuffer(buf, url);
+      $('#sourceLabel').textContent = url.split('/').pop();
+    }
+
+    // ====== Plantillas & Render ======
+    function rebuildPlantillas(){
+      const groups = groupBy(DATA.items, 'ide');
+      PLANTILLAS = Object.entries(groups).map(([ide, rows])=>({ id: ide, nombre: rows[0]?.plantilla || `Plantilla ${ide}`, count: rows.length }))
+        .sort((a,b)=> String(a.nombre).localeCompare(String(b.nombre)));
+      const cont = $('#plantillas'); cont.innerHTML = '';
+      $('#plantCount').textContent = PLANTILLAS.length;
+      const q = ($('#plantSearch').value||'').toLowerCase();
+      PLANTILLAS.filter(p=> p.nombre.toLowerCase().includes(q) || String(p.id).includes(q)).forEach(p=>{
+        const div = document.createElement('div');
+        div.className = 'chip' + (VISTA.plantillaId===p.id?' active':'');
+        div.innerHTML = `<div style="flex:1"><div style="font-weight:600">${p.nombre}</div><small class="muted">ID: ${p.id} • ${p.count} ítems</small></div>`;
+        div.addEventListener('click', ()=>{ VISTA.plantillaId = p.id; renderTabla(); $$('.chip').forEach(c=>c.classList.remove('active')); div.classList.add('active'); });
+        cont.appendChild(div);
+      });
+    }
+
+    function costoItem(it){
+      const cp = DATA.proveedores[it.proveedor] ?? 1.0; // oculto
+      const cc = DATA.coefCliente || 1.0; // oculto de Hoja 3
+      return (it.precioBase||0) * (cp||1) * (cc||1);
+    }
+    function precioPublico(it){
+      return costoItem(it) * (parseNum($('#markup').value)||1.0);
+    }
+
+    function renderTabla(){
+      const head = $('#plantillaHeader');
+      const tbody = $('#tbody'); tbody.innerHTML = '';
+      const ide = VISTA.plantillaId;
+      if(!ide){ head.textContent = 'Seleccioná una plantilla de la izquierda.'; return }
+      const rows = DATA.items.filter(x=> String(x.ide)===String(ide));
+      const nombre = rows[0]?.plantilla || `Plantilla ${ide}`;
+      head.innerHTML = `<b>${nombre}</b> <span class="muted">(ID ${ide})</span>`;
+
+      rows.forEach((it, idx)=>{
+        const tr = document.createElement('tr');
+        const cCosto = money(costoItem(it));
+        const cPub = money(precioPublico(it));
+        tr.innerHTML = `
+          <td>${it.codigo||''}</td>
+          <td>${it.desc||''}</td>
+          <td class="muted">${money(it.precioBase)}</td>
+          <td><b class="unitcosto">${cCosto}</b></td>
+          <td><input class="qty" type="number" min="0" step="1" value="0" data-index="${idx}" /></td>
+          <td><b class="unitpub">${cPub}</b></td>
+          <td class="tcosto">$0</td>
+          <td class="tpublico">$0</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      attachQtyHandlers(rows);
+      recalcTotals();
+      $('#footNote').textContent = `Mostrando ${rows.length} ítems. Modificá cantidades o el markup para recalcular.`;
+    }
+
+    function attachQtyHandlers(rows){
+      $$('#tbody .qty').forEach((inp, i)=>{
+        inp.addEventListener('input', ()=>{
+          const q = Math.max(0, parseNum(inp.value));
+          const it = rows[i];
+          const tCosto = q * costoItem(it);
+          const tPub = q * precioPublico(it);
+          const tr = inp.closest('tr');
+          tr.querySelector('.tcosto').textContent = money(tCosto);
+          tr.querySelector('.tpublico').textContent = money(tPub);
+          recalcTotals();
+        });
+      });
+    }
+
+    function recalcTotals(){
+      let sC=0, sP=0;
+      $$('#tbody tr').forEach(tr=>{
+        const c = tr.querySelector('.tcosto').textContent;
+        const p = tr.querySelector('.tpublico').textContent;
+        const nC = parseNum(c.replace(/[^0-9,.-]/g,''));
+        const nP = parseNum(p.replace(/[^0-9,.-]/g,''));
+        sC += (isFinite(nC)?nC:0);
+        sP += (isFinite(nP)?nP:0);
+      });
+      $('#sumCosto').textContent = money(sC);
+      $('#sumPublico').textContent = money(sP);
+    }
+
+    // Recalcula precios unitarios y totales cuando cambia el markup
+    function refreshPrices(){
+      if(!VISTA.plantillaId) return;
+      const rows = DATA.items.filter(x=> String(x.ide)===String(VISTA.plantillaId));
+      $$('#tbody tr').forEach((tr,i)=>{
+        const it = rows[i];
+        if(!it) return;
+        const qty = parseNum(tr.querySelector('.qty').value);
+        const newUnitCosto = costoItem(it);
+        const newUnitPub = precioPublico(it);
+        const tCosto = qty * newUnitCosto;
+        const tPub = qty * newUnitPub;
+        const uc = tr.querySelector('.unitcosto'); if(uc) uc.textContent = money(newUnitCosto);
+        const up = tr.querySelector('.unitpub'); if(up) up.textContent = money(newUnitPub);
+        tr.querySelector('.tcosto').textContent = money(tCosto);
+        tr.querySelector('.tpublico').textContent = money(tPub);
+      });
+      recalcTotals();
+    }
+
+    // ====== PDF ======
+    function gatherSelection(){
+      if(!VISTA.plantillaId) return {nombre:"", ide:"", items:[]};
+      const rows = DATA.items.filter(x=> String(x.ide)===String(VISTA.plantillaId));
+      const out=[];
+      $$('#tbody tr').forEach((tr,i)=>{
+        const qty = parseNum(tr.querySelector('.qty').value);
+        if(qty>0){
+          const it = rows[i];
+          out.push({
+            codigo: it.codigo,
+            desc: it.desc,
+            qty,
+            costoUnit: costoItem(it),
+            pubUnit: precioPublico(it),
+            tCosto: qty*costoItem(it),
+            tPub: qty*precioPublico(it)
+          });
+        }
+      });
+      return { nombre: rows[0]?.plantilla||'', ide: VISTA.plantillaId, items: out };
+    }
+
+    function makePDF(){
+      const sel = gatherSelection();
+      if(!sel.items.length){ alert('No hay ítems con cantidad > 0.'); return }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:'pt', format:'a4'});
+      const cliente = ($('#nombreCliente').value||'Sin nombre').trim();
+      const marca = guessTitleFromFilename(DATA.archivo||'');
+      const fecha = new Date().toLocaleString('es-AR');
+
+      const commonHead = (title, pagina)=>{
+        doc.setFont('helvetica','bold'); doc.setFontSize(12);
+        doc.text(title, 40, 34);
+        doc.setFont('helvetica','normal'); doc.setFontSize(10);
+        doc.text(`Cliente: ${cliente}`, 40, 52);
+        doc.text(`Plantilla: ${sel.nombre} (ID ${sel.ide})`, 40, 68);
+        doc.text(`Lista: ${marca}`, 40, 84);
+        doc.text(`Fecha: ${fecha}`, 40, 100);
+        doc.text(`Página ${pagina}`, 500, 34);
+      };
+
+      // Página 1: precios al público
+      commonHead('Presupuesto para cliente (precios al público)', 1);
+      const body1 = sel.items.map(x=>[
+        x.codigo, x.desc, x.qty, money(x.pubUnit), money(x.tPub)
+      ]);
+      const totPub = sel.items.reduce((a,b)=>a+b.tPub,0);
+      doc.autoTable({
+        startY: 120,
+        head: [['Código','Descripción','Cant.','Precio unit.','Total']],
+        body: body1,
+        styles: {fontSize:9, cellPadding:4},
+        headStyles:{fillColor:[239,68,68]},
+        columnStyles: { 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} }
+      });
+      doc.setFont('helvetica','bold'); doc.text(`TOTAL: ${money(totPub)}`, 40, doc.lastAutoTable.finalY + 24);
+
+      // Página 2: costos (tu costo)
+      doc.addPage();
+      commonHead('Copia interna (tus costos)', 2);
+      const body2 = sel.items.map(x=>[
+        x.codigo, x.desc, x.qty, money(x.costoUnit), money(x.tCosto)
+      ]);
+      const totCost = sel.items.reduce((a,b)=>a+b.tCosto,0);
+      doc.autoTable({
+        startY: 120,
+        head: [['Código','Descripción','Cant.','Costo unit.','Total']],
+        body: body2,
+        styles: {fontSize:9, cellPadding:4},
+        headStyles:{fillColor:[31,41,55]},
+        columnStyles: { 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'} }
+      });
+      doc.setFont('helvetica','bold'); doc.text(`TOTAL COSTO: ${money(totCost)}`, 40, doc.lastAutoTable.finalY + 24);
+
+      const safeCliente = cliente.replace(/[^a-z0-9\-_. ]/gi,'_').trim()||'sin_nombre';
+      const base = (DATA.archivo||'lista').split('/').pop().replace(/\.[^.]+$/,'');
+      doc.save(`Presupuesto_${safeCliente}_${base}.pdf`);
+    }
+
+    // ====== Carga automática del más reciente en /data de JPAKD92/serviciosv1 ======
+    const GH = { user: 'JPAKD92', repo: 'serviciosv1', branch: 'main', dataDir: 'data' };
+
+    function extractDateFromName(name){
+      const base = (name||'').replace(/\.[^.]+$/,'');
+      let y, m, d;
+      const mIso = base.match(/^(\d{4})[-_](\d{2})[-_](\d{2})$/); // YYYY-MM-DD
+      const mDM = base.match(/^(\d{2})[-_](\d{2})(?:[-_](\d{2,4}))?$/); // DD-MM(-YYYY)
+      if(mIso){ y=+mIso[1]; m=+mIso[2]; d=+mIso[3]; }
+      else if(mDM){ d=+mDM[1]; m=+mDM[2]; y = mDM[3] ? (+mDM[3] < 100 ? 2000 + +mDM[3] : +mDM[3]) : new Date().getFullYear(); }
+      else return null;
+      if(m<1||m>12||d<1||d>31) return null;
+      return new Date(Date.UTC(y, m-1, d));
+    }
+
+    async function pickLatestFromGitHub(){
+      const apiUrl = `https://api.github.com/repos/${GH.user}/${GH.repo}/contents/${GH.dataDir}?ref=${GH.branch}`;
+      const res = await fetch(apiUrl);
+      if(!res.ok) throw new Error('No pude listar la carpeta data/ en GitHub');
+      const arr = await res.json();
+      const files = arr.filter(x => x.type === 'file' && /\.xlsx?$/i.test(x.name));
+      if(!files.length) throw new Error('No hay .xlsx en data/');
+      const withDates = files.map(f => ({...f, __date: extractDateFromName(f.name)}));
+      const dated = withDates.filter(f => f.__date instanceof Date && !isNaN(f.__date));
+      const chosen = dated.length ? dated.sort((a,b)=> b.__date - a.__date)[0] : files[0];
+      return chosen.download_url; // URL RAW
+    }
+
+    // ==== Listeners ====
+    document.getElementById('toggleAside').addEventListener('click', ()=>{
+      document.body.classList.toggle('collapsed');
+      document.getElementById('toggleAside').textContent = document.body.classList.contains('collapsed') ? 'Mostrar panel' : 'Ocultar panel';
+    });
+    document.getElementById('plantSearch').addEventListener('input', rebuildPlantillas);
+    document.getElementById('markup').addEventListener('input', refreshPrices);
+    document.getElementById('btnReset').addEventListener('click', ()=>{ $$('#tbody .qty').forEach(i=> i.value = 0); $$('#tbody .tcosto').forEach(td=> td.textContent = '$0'); $$('#tbody .tpublico').forEach(td=> td.textContent = '$0'); recalcTotals(); });
+    document.getElementById('btnPDF').addEventListener('click', makePDF);
+
+    (async function init(){
+      try {
+        const params = new URLSearchParams(location.search);
+        const qsFile = params.get('file');
+        if(qsFile){ await loadFromURL(qsFile); setTitleFrom(qsFile); return }
+        const latestRaw = await pickLatestFromGitHub();
+        await loadFromURL(latestRaw);
+        setTitleFrom(latestRaw);
+      } catch(e){
+        console.warn('Auto-carga falló:', e.message);
+      }
+    })();
+  </script>
+</body>
+</html>

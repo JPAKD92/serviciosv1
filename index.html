@@ -46,9 +46,9 @@
     body.collapsed .left{display:none}
     body.collapsed .wrap{grid-template-columns:1fr}
     /* Evitar que el header sticky tape la fila encontrada por Ctrl+F */
-    tbody tr { scroll-margin-top: 120px; }
+    tbody tr { scroll-margin-top: 140px; }
     /* Extra “colchón” general por si el navegador no respeta la de arriba */
-    html { scroll-padding-top: 120px; }
+    html { scroll-padding-top: 140px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -90,29 +90,29 @@
 
       <div id="plantillaHeader" class="muted" style="margin-bottom:6px">Seleccioná una plantilla de la izquierda.</div>
 
-      <div style="overflow:auto">
-        <table id="tabla">
-          <thead>
-            <tr>
-              <th style="min-width:120px">Código</th>
-              <th style="min-width:260px">Descripción</th>
-              <th><b>Costo (tu costo)</b></th>
-              <th>Cantidad</th>
-              <th><b>Precio público</b> (con markup)</th>
-              <th>Total costo</th>
-              <th>Total público</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-          <tfoot>
-            <tr>
-              <td colspan="5" style="text-align:right">Totales</td>
-              <td id="sumCosto">0</td>
-              <td id="sumPublico">0</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+     <div>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th style="min-width:120px">Código</th>
+        <th style="min-width:260px">Descripción</th>
+        <th><b>Costo (tu costo)</b></th>
+        <th>Cantidad</th>
+        <th><b>Precio público</b> (con markup)</th>
+        <th>Total costo</th>
+        <th>Total público</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align:right">Totales</td>
+        <td id="sumCosto">0</td>
+        <td id="sumPublico">0</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
 
       <div class="footnote" id="footNote"></div>
     </main>
@@ -454,4 +454,5 @@
   </script>
 </body>
 </html>
+
 

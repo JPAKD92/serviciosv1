@@ -45,6 +45,10 @@
     /* colapsar sidebar */
     body.collapsed .left{display:none}
     body.collapsed .wrap{grid-template-columns:1fr}
+    /* Evitar que el header sticky tape la fila encontrada por Ctrl+F */
+    tbody tr { scroll-margin-top: 120px; }
+    /* Extra “colchón” general por si el navegador no respeta la de arriba */
+    html { scroll-padding-top: 120px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -450,3 +454,4 @@
   </script>
 </body>
 </html>
+
